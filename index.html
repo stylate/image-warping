@@ -1,0 +1,281 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Alan Nguyen |  CS 194-26</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+<body>
+
+<div className-"title">
+  <h1>Image Warping and Mosaicing</h1>
+  <h2>Alan Nguyen</h2>
+</div>
+
+<br/>
+<div>
+
+<h2>Part A</h2>
+
+<h3>Part 1: Recover Homographies</h3>
+
+<p>To recover the homography matrix, I first used Python's ginput() function to pick certain points. Then, I computed p' = Hp and converted H from a 8x1 matrix to a 3x3 matrix. Typically, the correspondence points that are chosen are two-dimensional. In order to recover the Homography matrix, we transform these points into three-dimensional homography points, such that the third coordinate is a scaling factor.</p>
+
+
+<h3>Part 2: Rectification</h3>
+
+<p>A rectangular box is chosen by 4 points that are then passed onto the homography matrix with a unit square. Then, we perform inverse warping with the inverse homography matrix and the warped points (x', y'). </p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/rect.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/rect-out.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/sign.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/sign-out.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3>Part 3: Image Stitching</h3>
+
+<p>A series of corresponding points are chosen between the left and center images for the homography matrix. Linear blending is finally performed and we are able to construct an image mosaic of the two! This can be done by rectifying the left image to a known shape, and padding both images based on the offsets of the warped corners of the left image.</p>
+
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/v-l.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/v-c.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/blended.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/a-l.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/a-c.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/blended-amazon.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/m-l.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/m-c.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/blended-mlk.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h2>Part B</h2>
+
+Previously, in part A, I had to manually set my correspondence points, which ended up in many cases of trial & error due to the possibility of having "bad" points, ending in a bad blend between the left and center images. According to the paper <a href="https://inst.eecs.berkeley.edu/~cs194-26/fa18/Papers/MOPS.pdf">“Multi-Image Matching using Multi-Scale Oriented Patches” by Brown et al.</a>, it is possible to perform autostitching and image mosaics without having to manually set correspondence points!
+
+<h3>Part 1: Harris Corners</h3>
+
+<p>First, we can get a series of interest points using a Harris point detector algorithm. This detects corner points based on a sliding window of points and measuring the intensity levels. Unfortunately, as shown below, there are too many interest points given.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/harris/harris-left-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/harris/harris-center-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/harris/harris-left-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/harris/harris-center-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/harris/harris-left-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/harris/harris-center-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3>Part 2: Adaptive Non-Maximal Suppression</h3>
+
+<p>Turns out, we can use the ANMS method to reduce the amount of interest points, especially since they are too close together. The main algorithm runs colinearly with the amount of interest points, so reducing such will speed up the algorithm.</p>
+
+<p>For each harris point i, ANMS finds its suppression radius--the smallest distance between the harris point and another harris point j such that the corner strength of i is less than the product of a constant c and the corner strength of j. Next, we select the top 300 points based on the largest suppression radii. As we can see, the amount of points is reduced slightly, while also being evenly spaced out throughout the images. We can still significantly reduce these points, however!</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/anms/anms-left-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/anms/anms-center-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/anms/anms-left-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/anms/anms-center-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/anms/anms-left-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/anms/anms-center-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3>Part 3: Feature Descriptors and Matching</h3>
+
+<p>Next, we create feature descriptors for each harris point by first creating a 40x40 patch surrounding the point. Then, each patch gets downsampled to a 8x8 patch with bias/gain normalization.</p>
+
+<p>These descriptors are made specifically for both the left and center images. It now makes sense to keep only descriptors that match with each other--based on Lowe's algorithm. Essentially, we compute the SSD between an arbitrary left and center descriptor, corresponding to the left and center points. Then we take the bottom two lowest SSDs and determine if they satisfy the condition 1-NN/2-NN < k for k is an arbitrary number, like 0.5. This significantly reduces the amount of interest points we have! </p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/matching/matching-left-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/matching/matching-center-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/matching/matching-left-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/matching/matching-center-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/matching/matching-left-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/matching/matching-center-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3>Part 4: RANSAC</h3>
+
+<p>Although feature matching significantly reduces our interest points, there exists some outliers in the matching pairs. This can significantly alter our Homography matrix, so we use the RANSAC algorithm to create an appropriate Homography matrix that would blend the two images together with a slightly less amount of  matching pairs. The following algorithm goes by the following:</p>
+
+<ol>
+  <li>Select 4 matching pairs at random.</li>
+  <li>Compute the homography matrix and the inliers; matching pairs (p, p') are inliers if SSD(p', Hp) < k.</li>
+  <li>Keep the largest set of inliers after repeating steps 1 and 2 n times, for n is an arbitrary large integer.</li>
+  <li>Recompute the homography matrix with the largest set of inliers.</li>
+</ol>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/ransac/ransac-left-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/ransac/ransac-center-amazon.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/ransac/ransac-left-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/ransac/ransac-center-mlk.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/ransac/ransac-left-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/ransac/ransac-center-room.png" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3>Results</h3>
+
+<p>After obtaining the homography matrix from the RANSAC algorithm, we run the same warping procedure as from part A. The left images are autostitched, and the right images are the results of picking manual points. We can see that the blending is significantly more seamless in the left images!</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="img/autoblended-amazon.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+        <td>
+        <img src="img/blended-amazon.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/autoblended-mlk.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/blended-mlk.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="img/autoblended-room.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+      <td>
+        <img src="img/blended-room.jpg" style="width: 100%;max-height: 100%" align="middle"/>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h2>Summary</h2>
+
+<p>What I thought was really interesting was how the Homography matrix was the key to image rectification and mosaic building. It's fascinating how such transformation matrices can easily transform the POV of an image, and how they can help stitch two images into a panorama. Furthermore, it was really cool to learn about how autostitching worked in images! It didn't occur to me that various equations dictated what were exactly "good" correspondence points when it came to computing an ideal homography matrix.</p>
+
+
+</body>
+</html>
